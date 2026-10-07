@@ -178,6 +178,7 @@ public:
      */
     void expandParentDirectories(const QUrl &url);
 
+    void setFileChooserFilters(const QList<QPair<uint, QString>> &filters);
     void setNameFilter(const QString &nameFilter);
     QString nameFilter() const;
 

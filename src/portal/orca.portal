@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Orca Explorer Contributors
+# SPDX-License-Identifier: CC0-1.0
+[portal]
+DBusName=org.freedesktop.impl.portal.desktop.orca
+Interfaces=org.freedesktop.impl.portal.FileChooser;
+UseIn=gnome

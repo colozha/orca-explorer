@@ -1,0 +1,8 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Orca Explorer Contributors
+# SPDX-License-Identifier: CC0-1.0
+# Scope dependency overrides to this process and its children.
+export LD_LIBRARY_PATH="@KDE_INSTALL_FULL_LIBDIR@/orca-explorer:@ORCA_RUNTIME_DEPENDENCY_PREFIX@/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export QT_PLUGIN_PATH="@KDE_INSTALL_FULL_PLUGINDIR@:@ORCA_RUNTIME_DEPENDENCY_PREFIX@/lib64/qt6/plugins${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}"
+export XDG_DATA_DIRS="@KDE_INSTALL_FULL_DATADIR@:@ORCA_RUNTIME_DEPENDENCY_PREFIX@/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+exec "@KDE_INSTALL_FULL_BINDIR@/@ORCA_LAUNCHER_NAME@" "$@"

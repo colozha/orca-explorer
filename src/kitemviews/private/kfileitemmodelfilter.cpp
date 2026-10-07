@@ -104,11 +104,22 @@ QStringList KFileItemModelFilter::excludeMimeTypes() const
 
 bool KFileItemModelFilter::hasSetFilters() const
 {
-    return (!m_pattern.isEmpty() || !m_mimeTypes.isEmpty() || !m_excludeMimeTypes.isEmpty());
+    return (!m_fileChooserFilters.isEmpty() || !m_pattern.isEmpty() || !m_mimeTypes.isEmpty() || !m_excludeMimeTypes.isEmpty());
 }
 
 bool KFileItemModelFilter::matches(const KFileItem &item) const
 {
+    if (!m_fileChooserFilters.isEmpty()) {
+        if (item.isDir()) {
+            return true;
+        }
+        return std::any_of(m_fileChooserFilters.cbegin(), m_fileChooserFilters.cend(), [&item](const auto &entry) {
+            if (entry.first == 0) {
+                return QRegularExpression(QRegularExpression::wildcardToRegularExpression(entry.second)).match(item.name()).hasMatch();
+            }
+            return entry.first == 1 && item.determineMimeType().inherits(entry.second);
+        });
+    }
     const bool hasPatternFilter = !m_pattern.isEmpty();
     const bool hasMimeTypesFilter = !m_mimeTypes.isEmpty() || !m_excludeMimeTypes.isEmpty();
 
@@ -160,4 +171,14 @@ bool KFileItemModelFilter::matchesType(const KFileItem &item) const
     }
 
     return m_mimeTypes.isEmpty();
+}
+
+void KFileItemModelFilter::setFileChooserFilters(const QList<QPair<uint, QString>> &filters)
+{
+    m_fileChooserFilters = filters;
+}
+
+QList<QPair<uint, QString>> KFileItemModelFilter::fileChooserFilters() const
+{
+    return m_fileChooserFilters;
 }

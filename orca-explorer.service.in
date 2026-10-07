@@ -3,6 +3,7 @@ Description=Orca Explorer file manager
 PartOf=graphical-session.target
 
 [Service]
-ExecStart=@KDE_INSTALL_FULL_BINDIR@/orca-explorer --daemon
+Type=dbus
+ExecStart=@ORCA_LAUNCHER_BINDIR@/orca-explorer --daemon
 BusName=io.github.colozha.OrcaExplorer
 Slice=background.slice

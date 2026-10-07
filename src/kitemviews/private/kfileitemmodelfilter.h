@@ -78,6 +78,9 @@ public:
      * @return True if either the pattern or mimetype filters has been set.
      */
     bool hasSetFilters() const;
+    // Portal entries: 0 = glob, 1 = MIME. Directories remain navigable.
+    void setFileChooserFilters(const QList<QPair<uint, QString>> &filters);
+    QList<QPair<uint, QString>> fileChooserFilters() const;
 
     /**
      * @return True if the item matches with the pattern defined by
@@ -108,6 +111,7 @@ private:
     QString m_lowerCasePattern; // Lowercase version of m_filter for
                                 // faster comparison in matches().
     QString m_pattern; // Property set by setPattern().
+    QList<QPair<uint, QString>> m_fileChooserFilters;
     QStringList m_mimeTypes; // Property set by setMimeTypes()
     QStringList m_excludeMimeTypes; // Property set by setExcludeMimeTypes()
 };

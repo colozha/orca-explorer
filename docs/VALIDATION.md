@@ -2,6 +2,11 @@
 
 Orca Explorer **0.1.0 (development)**, based on Dolphin **26.08.2**. No repository, tag or release was published by this preparation.
 
+The later desktop installation and Orca picker verification, including **23/23**
+CTest suites and native/Flatpak application checks, are recorded in
+[desktop integration](DESKTOP-INTEGRATION.md). The sections below describe the
+initial fork preparation before that opt-in integration was added.
+
 ## Environment and results
 
 Fedora 44, Qt 6.11.2, KDE Frameworks 6.30.0, Baloo Widgets release/26.08 source reporting 26.08.2. Development packages were extracted into a temporary prefix; no system packages or installed Dolphin files were replaced.

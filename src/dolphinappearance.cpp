@@ -246,12 +246,13 @@ public:
                                               QStringLiteral("SettingChanged"),
                                               this,
                                               SLOT(settingChanged(QString, QString, QDBusVariant)));
-        QDBusInterface settings(QStringLiteral("org.freedesktop.portal.Desktop"),
-                                QStringLiteral("/org/freedesktop/portal/desktop"),
-                                QStringLiteral("org.freedesktop.portal.Settings"));
-        auto *watcher = new QDBusPendingCallWatcher(
-            settings.asyncCall(QStringLiteral("ReadOne"), QStringLiteral("org.freedesktop.appearance"), QStringLiteral("color-scheme")),
-            this);
+        // Do not synchronously introspect the frontend while a portal backend is starting.
+        auto settings = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.portal.Desktop"),
+                                                       QStringLiteral("/org/freedesktop/portal/desktop"),
+                                                       QStringLiteral("org.freedesktop.portal.Settings"),
+                                                       QStringLiteral("ReadOne"));
+        settings.setArguments({QStringLiteral("org.freedesktop.appearance"), QStringLiteral("color-scheme")});
+        auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(settings), this);
         connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher]() {
             const QDBusPendingReply<QDBusVariant> reply = *watcher;
             if (!reply.isError()) {

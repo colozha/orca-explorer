@@ -164,10 +164,17 @@ int main(int argc, char **argv)
         parser.addOption(selfTestOption);
     }
 #endif
+    parser.addOption(
+        QCommandLineOption(QStringLiteral("file-manager-service"), i18nc("@info:shell", "Claim the desktop FileManager1 service (requires --daemon).")));
     parser.addPositionalArgument(QStringLiteral("+[Url]"), i18nc("@info:shell", "Document to open"));
 
     parser.process(app);
     aboutData.processCommandLine(&parser);
+
+    if (parser.isSet(QStringLiteral("file-manager-service")) && !parser.isSet(QStringLiteral("daemon"))) {
+        std::cerr << "--file-manager-service requires --daemon\n";
+        return EXIT_FAILURE;
+    }
 
     const bool splitView = parser.isSet(QStringLiteral("split")) || GeneralSettings::splitView();
     const bool openFiles = parser.isSet(QStringLiteral("select"));
@@ -195,7 +202,9 @@ int main(int argc, char **argv)
         QObject::connect(&app, &QGuiApplication::commitDataRequest, disableSessionManagement);
         QObject::connect(&app, &QGuiApplication::saveStateRequest, disableSessionManagement);
 
-        QCoreApplication::setApplicationName(QStringLiteral("OrcaExplorer"));
+        // Keep the optional desktop daemon separate from Orca's ordinary unique daemon.
+        QCoreApplication::setApplicationName(parser.isSet(QStringLiteral("file-manager-service")) ? QStringLiteral("OrcaExplorerFileManager")
+                                                                                                  : QStringLiteral("OrcaExplorer"));
 #ifdef FLATPAK
         KDBusService dolphinDBusService(KDBusService::Unique | KDBusService::NoExitOnFailure);
 #else
@@ -204,6 +213,11 @@ int main(int argc, char **argv)
         QCoreApplication::setApplicationName(QStringLiteral("orca-explorer"));
         DBusInterface interface;
         interface.setAsDaemon();
+        if (parser.isSet(QStringLiteral("file-manager-service"))
+            && !QDBusConnection::sessionBus().registerService(QStringLiteral("org.freedesktop.FileManager1"))) {
+            std::cerr << "Cannot claim org.freedesktop.FileManager1: " << qPrintable(QDBusConnection::sessionBus().lastError().message()) << '\n';
+            return EXIT_FAILURE;
+        }
         return app.exec();
     }
 

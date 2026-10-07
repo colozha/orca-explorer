@@ -35,7 +35,9 @@ cmake --install build
 orca-explorer
 ```
 
-Ensure `$HOME/.local/bin` is on `PATH`. Install only from the fork build tree. Fork libraries are installed under `lib/orca-explorer` (or the platform's `lib64` equivalent) and use relative RPATHs. The launcher's application ID is `io.github.colozha.OrcaExplorer`. Installation does not select a default file manager or register the global `org.freedesktop.FileManager1` bus service.
+Ensure `$HOME/.local/bin` is on `PATH`. Install only from the fork build tree. Fork libraries are installed under `lib/orca-explorer` (or the platform's `lib64` equivalent) and use relative RPATHs. The launcher's application ID is `io.github.colozha.OrcaExplorer`. By default, installation does not select a default file manager or register the global `org.freedesktop.FileManager1` bus service.
+
+For explicit desktop default and Orca Open/Save picker setup, see [desktop integration](docs/DESKTOP-INTEGRATION.md). The FileManager1 service is opt-in; the portal picker handles applications that use the portal API.
 
 Settings use `orca-explorerrc`; state, application data, cache, bookmarks and folder view properties use separate Orca storage. Dolphin configuration is not imported automatically. See [distribution and integration](docs/DISTRIBUTION.md).
 

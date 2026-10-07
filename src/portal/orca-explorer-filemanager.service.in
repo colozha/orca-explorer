@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 Orca Explorer Contributors
+# SPDX-License-Identifier: CC0-1.0
+[Unit]
+Description=Orca Explorer desktop file manager
+PartOf=graphical-session.target
+After=graphical-session.target
+[Service]
+Type=dbus
+BusName=org.freedesktop.FileManager1
+ExecStart=@ORCA_LAUNCHER_BINDIR@/orca-explorer --daemon --file-manager-service
+Slice=background.slice
+[Install]
+WantedBy=graphical-session.target

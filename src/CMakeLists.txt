@@ -716,3 +716,11 @@ endforeach()
 
 install(FILES ${CMAKE_SOURCE_DIR}/LICENSE ${CMAKE_SOURCE_DIR}/COPYING ${CMAKE_SOURCE_DIR}/COPYING.DOC ${CMAKE_SOURCE_DIR}/docs/PROVENANCE.md DESTINATION ${KDE_INSTALL_DATADIR}/orca-explorer/licenses)
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/LICENSES/ DESTINATION ${KDE_INSTALL_DATADIR}/orca-explorer/licenses/LICENSES)
+
+add_subdirectory(portal)
+if(ORCA_RUNTIME_DEPENDENCY_PREFIX)
+    foreach(ORCA_LAUNCHER_NAME orca-explorer orca-explorer-portal orca-explorer-servicemenuinstaller)
+        configure_file(${CMAKE_SOURCE_DIR}/packaging/launcher.in ${CMAKE_CURRENT_BINARY_DIR}/${ORCA_LAUNCHER_NAME}-launcher @ONLY)
+        install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/${ORCA_LAUNCHER_NAME}-launcher DESTINATION ${ORCA_LAUNCHER_BINDIR} RENAME ${ORCA_LAUNCHER_NAME})
+    endforeach()
+endif()

@@ -2896,3 +2896,8 @@ void DolphinView::expandToUrl(const QUrl &directory)
 }
 
 #include "moc_dolphinview.cpp"
+
+void DolphinView::setFileChooserFilters(const QList<QPair<uint, QString>> &filters)
+{
+    m_model->setFileChooserFilters(filters);
+}

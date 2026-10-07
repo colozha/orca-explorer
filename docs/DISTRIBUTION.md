@@ -13,7 +13,8 @@ Build from the corresponding published source, preserve the complete license not
 - Executable: `orca-explorer`; desktop/app ID: `io.github.colozha.OrcaExplorer`.
 - Libraries: private `lib[64]/orca-explorer`, with relative RPATHs. VCS class ABI and SONAME remain compatible with upstream plugins; SDK installation uses the OrcaExplorer namespace.
 - Bundled KParts and KCM modules, catalogs, helper executables, update scripts, icons, metadata and shell completion have separate names or private destinations.
-- FileManager1 methods are exposed on Orca's application bus; the global `org.freedesktop.FileManager1` name is not claimed. Default MIME/file-manager associations are not changed.
+- FileManager1 methods are exposed on Orca's application bus. Ordinary launches do not claim the global name. `--daemon --file-manager-service` opts into global ownership; `ORCA_INSTALL_DEFAULT_FILE_MANAGER` defaults to OFF. The optional user integration helper changes MIME/file-manager associations only when explicitly enabled.
+- The `orca-explorer-portal` backend provides FileChooser methods to portal clients; installing its descriptor does not select it as preferred. See [desktop integration](DESKTOP-INTEGRATION.md).
 - Settings: `orca-explorerrc`, state `orca-explorerstaterc`; data/cache are under the application name. Bookmarks and Places use application storage. View properties use `OrcaExplorer`/`OrcaExplorerSettings` groups and a separate metadata key, preserving other `.directory` entries.
 - Shared desktop services (KIO, Solid, Baloo, portal dialogs), external service menus and VCS plugins retain their existing integration contracts.
 

@@ -3270,3 +3270,12 @@ void KFileItemModel::slotListerError(KIO::Job *job)
 }
 
 #include "moc_kfileitemmodel.cpp"
+
+void KFileItemModel::setFileChooserFilters(const QList<QPair<uint, QString>> &filters)
+{
+    if (m_filter.fileChooserFilters() != filters) {
+        dispatchPendingItemsToInsert();
+        m_filter.setFileChooserFilters(filters);
+        applyFilters();
+    }
+}

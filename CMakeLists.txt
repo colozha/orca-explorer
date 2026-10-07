@@ -23,11 +23,26 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 find_package(ECM ${KF6_MIN_VERSION} CONFIG REQUIRED)
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 
+# systemd searches the user data directory, not ~/.local/lib/systemd/user.
+if(CMAKE_INSTALL_PREFIX STREQUAL "$ENV{HOME}/.local" AND NOT KDE_INSTALL_SYSTEMDUSERUNITDIR)
+    set(KDE_INSTALL_SYSTEMDUSERUNITDIR "share/systemd/user" CACHE PATH "User systemd units" FORCE)
+endif()
 include(KDEInstallDirs)
 include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
 # Do not embed development-machine dependency prefixes in installed binaries.
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
+
+# Default desktop integration remains explicit opt-in for fork installations.
+option(ORCA_INSTALL_DEFAULT_FILE_MANAGER "Install FileManager1 activation service" OFF)
+set(ORCA_RUNTIME_DEPENDENCY_PREFIX "" CACHE PATH "Private runtime dependency prefix (enables launch wrappers)")
+set(ORCA_LAUNCHER_BINDIR "${KDE_INSTALL_FULL_BINDIR}")
+if(ORCA_RUNTIME_DEPENDENCY_PREFIX)
+    set(ORCA_LAUNCHER_BINDIR "${CMAKE_INSTALL_PREFIX}/bin")
+    if(ORCA_LAUNCHER_BINDIR STREQUAL KDE_INSTALL_FULL_BINDIR)
+        message(FATAL_ERROR "Use a private KDE_INSTALL_BINDIR, e.g. libexec/orca-explorer, with runtime wrappers")
+    endif()
+endif()
 
 include(ECMSetupVersion)
 include(ECMGenerateHeaders)
@@ -199,7 +214,7 @@ install(FILES
 
 ecm_generate_dbus_service_file(
     NAME io.github.colozha.OrcaExplorer
-    EXECUTABLE "${KDE_INSTALL_FULL_BINDIR}/orca-explorer --daemon"
+    EXECUTABLE "${ORCA_LAUNCHER_BINDIR}/orca-explorer --daemon"
     SYSTEMD_SERVICE orca-explorer.service
     DESTINATION ${KDE_INSTALL_DBUSSERVICEDIR}
 )
@@ -215,6 +230,8 @@ ki18n_install(po)
 if(KF6DocTools_FOUND)
     kdoctools_install(po)
 endif()
+
+install(PROGRAMS packaging/desktop-integration.py DESTINATION ${ORCA_LAUNCHER_BINDIR} RENAME orca-desktop-integration)
 
 install(FILES completions/dolphin.zsh RENAME _orca-explorer DESTINATION ${KDE_INSTALL_ZSHAUTOCOMPLETEDIR})
 

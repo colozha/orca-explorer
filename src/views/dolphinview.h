@@ -270,6 +270,7 @@ public:
      * Filters the currently shown items by \a nameFilter. All items
      * which contain the given filter string will be shown.
      */
+    void setFileChooserFilters(const QList<QPair<uint, QString>> &filters);
     void setNameFilter(const QString &nameFilter);
     QString nameFilter() const;
 
