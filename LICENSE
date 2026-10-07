@@ -1,0 +1,17 @@
+Orca Explorer — combined distribution license
+
+The combined Orca Explorer application is distributed under GNU General Public
+License version 3 only (GPL-3.0-only). The complete license text is provided in
+LICENSES/GPL-3.0-only.txt.
+
+This does not replace or relicense upstream files. Each file retains its SPDX
+license and original copyright notices. GPL-2.0-or-later contributions permit
+distribution under version 3; multi-license files retain their stated choices.
+Libraries, assets, translations and documentation retain their individual
+licenses and any corresponding obligations. COPYING, COPYING.DOC and all
+LICENSES files are preserved as upstream notices.
+
+New original Orca Explorer artwork by colozha is dedicated under CC0-1.0.
+The bundled Adwaita subset retains LGPL-3.0-only notices. See docs/PROVENANCE.md.
+
+Fork modifications: © 2026 colozha. Upstream code remains credited to its authors.

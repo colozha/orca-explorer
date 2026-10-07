@@ -1,0 +1,189 @@
+/*
+    This file is part of the KDE project
+    SPDX-FileCopyrightText: 2020 Felix Ernst <felixernst@kde.org>
+
+    SPDX-License-Identifier: LGPL-2.1-only OR LGPL-3.0-only OR LicenseRef-KDE-Accepted-LGPL
+*/
+
+#include "dolphinurlnavigator.h"
+#include "dolphinappearance.h"
+
+#include "dolphin_generalsettings.h"
+#include "dolphinplacesmodelsingleton.h"
+#include "dolphinurlnavigatorscontroller.h"
+#include "global.h"
+
+#include <KLocalizedString>
+#include <KUrlComboBox>
+
+#include <QAbstractButton>
+#include <QKeyEvent>
+#include <QLabel>
+#include <QLayout>
+#include <QLineEdit>
+#include <QPaintEvent>
+#include <QPainter>
+
+DolphinUrlNavigator::DolphinUrlNavigator(QWidget *parent)
+    : DolphinUrlNavigator(QUrl(), parent)
+{
+}
+
+DolphinUrlNavigator::DolphinUrlNavigator(const QUrl &url, QWidget *parent)
+    : KUrlNavigator(DolphinPlacesModelSingleton::instance().placesModel(), url, parent)
+{
+    const GeneralSettings *settings = GeneralSettings::self();
+    setUrlEditable(settings->editableUrl());
+    setShowFullPath(settings->showFullPath());
+    setHomeUrl(Dolphin::homeUrl());
+    setPlacesSelectorVisible(DolphinUrlNavigatorsController::placesSelectorVisible());
+    if (DolphinAppearance::isEnabled()) {
+        setBackgroundEnabled(false);
+        setMinimumHeight(34);
+    }
+    editor()->setCompletionMode(KCompletion::CompletionMode(settings->urlCompletionMode()));
+    setWhatsThis(xi18nc("@info:whatsthis location bar",
+                        "<para>This describes the location of the files and folders "
+                        "displayed below.</para><para>The name of the currently viewed "
+                        "folder can be read at the very right. To the left of it is the "
+                        "name of the folder that contains it. The whole line is called "
+                        "the <emphasis>path</emphasis> to the current location because "
+                        "following these folders from left to right leads here.</para>"
+                        "<para>This interactive path "
+                        "is more powerful than one would expect. To learn more "
+                        "about the basic and advanced features of the location bar "
+                        "<link url='help:/orca-explorer/location-bar.html'>click here</link>. "
+                        "This will open the dedicated page in the Handbook.</para>"));
+
+    DolphinUrlNavigatorsController::registerDolphinUrlNavigator(this);
+
+    connect(this, &KUrlNavigator::returnPressed, this, &DolphinUrlNavigator::slotReturnPressed);
+
+    auto readOnlyBadge = new QLabel();
+    readOnlyBadge->setPixmap(QIcon::fromTheme(QStringLiteral("emblem-readonly")).pixmap(12, 12));
+    readOnlyBadge->setToolTip(i18nc("@info:tooltip of a 'locked' symbol in url navigator", "This folder is not writable for you."));
+    readOnlyBadge->hide();
+    setBadgeWidget(readOnlyBadge);
+}
+
+DolphinUrlNavigator::~DolphinUrlNavigator()
+{
+    DolphinUrlNavigatorsController::unregisterDolphinUrlNavigator(this);
+}
+
+bool DolphinUrlNavigator::eventFilter(QObject *watched, QEvent *event)
+{
+    // KIO 6 handles its own paint events through a self-installed filter, bypassing
+    // virtual paintEvent. Keep all of its navigation filters and replace only paint.
+    if (DolphinAppearance::isEnabled() && watched == this && event->type() == QEvent::Paint) {
+        paintEvent(static_cast<QPaintEvent *>(event));
+        return true;
+    }
+    return KUrlNavigator::eventFilter(watched, event);
+}
+
+void DolphinUrlNavigator::paintEvent(QPaintEvent *event)
+{
+    if (DolphinAppearance::isEnabled()) {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(palette().color(QPalette::Button));
+        painter.drawRoundedRect(rect(), 8, 8);
+    } else {
+        KUrlNavigator::paintEvent(event);
+    }
+}
+
+QSize DolphinUrlNavigator::sizeHint() const
+{
+    if (isUrlEditable()) {
+        return editor()->lineEdit()->sizeHint();
+    }
+    int widthHint = 0;
+    for (int i = 0; i < layout()->count(); ++i) {
+        QWidget *widget = layout()->itemAt(i)->widget();
+        const QAbstractButton *button = qobject_cast<QAbstractButton *>(widget);
+        if (button && button->icon().isNull()) {
+            widthHint += widget->minimumSizeHint().width();
+        }
+    }
+    if (readOnlyBadgeVisible()) {
+        widthHint += badgeWidget()->sizeHint().width();
+    }
+    return QSize(widthHint, KUrlNavigator::sizeHint().height());
+}
+
+std::unique_ptr<DolphinUrlNavigator::VisualState> DolphinUrlNavigator::visualState() const
+{
+    std::unique_ptr<VisualState> visualState{new VisualState};
+    visualState->isUrlEditable = (isUrlEditable());
+    const QLineEdit *lineEdit = editor()->lineEdit();
+    visualState->hasFocus = lineEdit->hasFocus();
+    visualState->text = lineEdit->text();
+    visualState->cursorPosition = lineEdit->cursorPosition();
+    visualState->selectionStart = lineEdit->selectionStart();
+    visualState->selectionLength = lineEdit->selectionLength();
+    return visualState;
+}
+
+void DolphinUrlNavigator::setVisualState(const VisualState &visualState)
+{
+    setUrlEditable(visualState.isUrlEditable);
+    if (!visualState.isUrlEditable) {
+        return;
+    }
+    editor()->lineEdit()->setText(visualState.text);
+    if (visualState.hasFocus) {
+        editor()->lineEdit()->setFocus();
+        editor()->lineEdit()->setCursorPosition(visualState.cursorPosition);
+        if (visualState.selectionStart != -1) {
+            editor()->lineEdit()->setSelection(visualState.selectionStart, visualState.selectionLength);
+        }
+    }
+}
+
+void DolphinUrlNavigator::clearText() const
+{
+    editor()->lineEdit()->clear();
+}
+
+void DolphinUrlNavigator::setPlaceholderText(const QString &text)
+{
+    editor()->lineEdit()->setPlaceholderText(text);
+}
+
+void DolphinUrlNavigator::setReadOnlyBadgeVisible(bool visible)
+{
+    QWidget *readOnlyBadge = badgeWidget();
+    if (readOnlyBadge) {
+        readOnlyBadge->setVisible(visible);
+    }
+}
+
+bool DolphinUrlNavigator::readOnlyBadgeVisible() const
+{
+    QWidget *readOnlyBadge = badgeWidget();
+    if (readOnlyBadge) {
+        return readOnlyBadge->isVisible();
+    }
+    return false;
+}
+
+void DolphinUrlNavigator::slotReturnPressed()
+{
+    if (!GeneralSettings::editableUrl()) {
+        setUrlEditable(false);
+    }
+}
+
+void DolphinUrlNavigator::keyPressEvent(QKeyEvent *keyEvent)
+{
+    if (keyEvent->key() == Qt::Key_Escape && !isUrlEditable()) {
+        Q_EMIT requestToLoseFocus();
+        return;
+    }
+    KUrlNavigator::keyPressEvent(keyEvent);
+}
+
+#include "moc_dolphinurlnavigator.cpp"

@@ -1,0 +1,41 @@
+[Icon Theme]
+Name=Orca Explorer GNOME
+Comment=Application-local Adwaita 50 subset
+Hidden=true
+Inherits=hicolor
+Directories=symbolic,scalable/places,scalable/mimetypes,scalable/devices,scalable/emblems
+
+[symbolic]
+Size=16
+MinSize=8
+MaxSize=32
+Type=Scalable
+Context=Actions
+
+[scalable/places]
+Size=96
+MinSize=48
+MaxSize=512
+Type=Scalable
+Context=Places
+
+[scalable/mimetypes]
+Size=96
+MinSize=48
+MaxSize=512
+Type=Scalable
+Context=Mimetypes
+
+[scalable/devices]
+Size=96
+MinSize=48
+MaxSize=512
+Type=Scalable
+Context=Devices
+
+[scalable/emblems]
+Size=96
+MinSize=48
+MaxSize=512
+Type=Scalable
+Context=Emblems

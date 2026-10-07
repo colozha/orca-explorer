@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='utf-8'?>
+<component type="desktop">
+  <id>io.github.colozha.OrcaExplorer</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <content_rating type="oars-1.1" />
+  <branding>
+    <color type="primary" scheme_preference="light">#67c4ff</color>
+    <color type="primary" scheme_preference="dark">#19455b</color>
+  </branding>
+  <name>Orca Explorer</name>
+  <summary>An independent file manager based on Dolphin</summary>
+  <description>
+    <p>Orca Explorer is an independent Dolphin fork with a GNOME Files inspired appearance, split views, tabs, previews, remote locations and the classic Dolphin interface. Version 0.1.0 is under development.</p>
+  </description>
+  <url type="homepage">https://github.com/colozha/orca-explorer</url>
+  <url type="bugtracker">https://github.com/colozha/orca-explorer/issues</url>
+  <url type="help">https://github.com/colozha/orca-explorer#readme</url>
+  <url type="vcs-browser">https://github.com/colozha/orca-explorer</url>
+  <developer id="io.github.colozha">
+    <name>colozha</name>
+  </developer>
+  <launchable type="desktop-id">io.github.colozha.OrcaExplorer.desktop</launchable>
+  <releases>
+    <release version="0.1.0" date="2026-10-07" type="development" />
+  </releases>
+</component>
