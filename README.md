@@ -4,7 +4,7 @@ Orca Explorer is an independent file manager fork based on **KDE Dolphin 26.08.2
 
 This project is not an official KDE application and is not affiliated with GNOME's Orca screen reader. The repository URL below is the intended publication destination; availability is not implied.
 
-![Orca Explorer on GNOME Wayland, dark appearance](docs/screenshots/orca-GnomeDark-1920x1033-1x.png)
+![Orca Explorer with GNOME Files dark appearance, updated sidebar spacing and 14 px header icons](docs/screenshots/orca-GnomeDark-1920x1033-1x.png)
 
 ## Features
 

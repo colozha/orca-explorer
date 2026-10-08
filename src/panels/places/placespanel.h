@@ -54,6 +54,7 @@ Q_SIGNALS:
     void openInSplitViewRequested(const QUrl &url);
 
 protected:
+    void paintEvent(QPaintEvent *event) override;
     void dragMoveEvent(QDragMoveEvent *event) override;
 
 private Q_SLOTS:

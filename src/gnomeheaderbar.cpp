@@ -74,6 +74,14 @@ GnomeHeaderBar::GnomeHeaderBar(DolphinMainWindow *window, KToolBar *toolbar, QDo
     setButtonLayout(QStringLiteral(":minimize,maximize,close"));
 
     qApp->installEventFilter(this);
+    connect(
+        m_toolbar,
+        &QToolBar::iconSizeChanged,
+        this,
+        [this]() {
+            updateGeometryAndFrame();
+        },
+        Qt::QueuedConnection);
 
     if (m_nativeGnomeWayland) {
         QDBusInterface settings(QStringLiteral("org.freedesktop.portal.Desktop"),
@@ -198,6 +206,12 @@ void GnomeHeaderBar::updateGeometryAndFrame()
     m_prefixSpace->setFixedWidth(qMax(0, sidebarWidth + leftWidth - handleWidth));
     m_prefixAction->setVisible(top);
     const auto actions = m_toolbar->actions();
+    for (const auto *name : {"go_back", "go_forward", "toggle_search", "view_settings"}) {
+        if (auto *button = qobject_cast<QToolButton *>(m_toolbar->widgetForAction(m_window->actionCollection()->action(QString::fromLatin1(name))))) {
+            button->setIconSize(QSize(14, 14));
+            button->setMinimumSize(32, 32);
+        }
+    }
     if (actions.isEmpty() || actions.front() != m_prefixAction) {
         m_toolbar->removeAction(m_prefixAction);
         m_toolbar->insertAction(actions.isEmpty() ? nullptr : actions.front(), m_prefixAction);

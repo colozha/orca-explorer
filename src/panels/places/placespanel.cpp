@@ -28,6 +28,7 @@
 #include <QIcon>
 #include <QMenu>
 #include <QMimeData>
+#include <QPainter>
 #include <QShowEvent>
 
 #include <Solid/StorageAccess>
@@ -36,7 +37,8 @@ PlacesPanel::PlacesPanel(QWidget *parent)
     : KFilePlacesView(parent)
 {
     if (DolphinAppearance::isEnabled()) {
-        setSpacing(2);
+        setSpacing(0);
+        setViewportMargins(12, 8, 12, 8);
         setBackgroundRole(QPalette::Window);
         viewport()->setBackgroundRole(QPalette::Window);
     }
@@ -93,6 +95,34 @@ PlacesPanel::PlacesPanel(QWidget *parent)
 }
 
 PlacesPanel::~PlacesPanel() = default;
+
+void PlacesPanel::paintEvent(QPaintEvent *event)
+{
+    KFilePlacesView::paintEvent(event);
+    if (!DolphinAppearance::isEnabled()) {
+        return;
+    }
+
+    QPainter painter(viewport());
+    QColor divider = palette().color(QPalette::WindowText);
+    divider.setAlphaF(0.15);
+    painter.setPen(divider);
+    QString previousGroup;
+    bool first = true;
+    for (int row = 0; row < model()->rowCount(); ++row) {
+        if (isRowHidden(row)) {
+            continue;
+        }
+        const QModelIndex index = model()->index(row, 0);
+        const QString group = index.data(KFilePlacesModel::GroupRole).toString();
+        if (!first && group != previousGroup) {
+            const int y = visualRect(index).top();
+            painter.drawLine(0, y, viewport()->width() - 1, y);
+        }
+        previousGroup = group;
+        first = false;
+    }
+}
 
 void PlacesPanel::setUrl(const QUrl &url)
 {

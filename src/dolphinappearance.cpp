@@ -11,6 +11,7 @@
 #include <KIconTheme>
 #include <KSharedConfig>
 
+#include <QAction>
 #include <QApplication>
 #include <QDBusConnection>
 #include <QDBusInterface>
@@ -26,9 +27,11 @@
 #include <QStyleHints>
 #include <QStyleOptionButton>
 #include <QStyleOptionMenuItem>
+#include <QStyleOptionToolButton>
 #include <QStyleOptionViewItem>
 #include <QTimer>
 #include <QToolBar>
+#include <QToolButton>
 
 static void initAppearanceResources()
 {
@@ -74,7 +77,7 @@ public:
         if (type == CT_ToolButton) {
             result = result.expandedTo(QSize(32, 32));
         } else if (type == CT_ItemViewItem && widget && widget->inherits("KFilePlacesView")) {
-            result.setHeight(qMax(36, result.height()));
+            result.setHeight(qMax(38, result.height()));
         }
         return result;
     }
@@ -163,6 +166,25 @@ public:
             }
         }
         QProxyStyle::drawControl(element, option, painter, widget);
+    }
+
+    void drawComplexControl(ComplexControl control, const QStyleOptionComplex *option, QPainter *painter, const QWidget *widget) const override
+    {
+        const auto *button = qobject_cast<const QToolButton *>(widget);
+        const auto *toolOption = qstyleoption_cast<const QStyleOptionToolButton *>(option);
+        if (control == CC_ToolButton && button && toolOption && button->parentWidget() && button->parentWidget()->objectName() == QLatin1String("mainToolBar")
+            && button->defaultAction()) {
+            const QString name = button->defaultAction()->objectName();
+            if (name == QLatin1String("go_back") || name == QLatin1String("go_forward") || name == QLatin1String("toggle_search")
+                || name == QLatin1String("view_settings")) {
+                // Qt paints toolbar buttons using the parent toolbar's icon size.
+                QStyleOptionToolButton copy(*toolOption);
+                copy.iconSize = QSize(14, 14);
+                QProxyStyle::drawComplexControl(control, &copy, painter, widget);
+                return;
+            }
+        }
+        QProxyStyle::drawComplexControl(control, option, painter, widget);
     }
 
     void polish(QWidget *widget) override

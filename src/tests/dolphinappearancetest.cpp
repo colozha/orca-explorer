@@ -35,9 +35,12 @@
 #include <QDirIterator>
 #include <QDockWidget>
 #include <QDomDocument>
+#include <QElapsedTimer>
 #include <QImage>
+#include <QPainter>
 #include <QScopeGuard>
 #include <QSignalSpy>
+#include <QStyleOptionToolButton>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
@@ -256,13 +259,60 @@ void DolphinAppearanceTest::mainWindowActions()
     }
     if (m_gnome) {
         auto *header = window.findChild<QWidget *>(QStringLiteral("gnomeSidebarHeader"));
-        auto *back = toolbar->widgetForAction(window.actionCollection()->action(QStringLiteral("go_back")));
-        auto *forward = toolbar->widgetForAction(window.actionCollection()->action(QStringLiteral("go_forward")));
+        auto *back = qobject_cast<QToolButton *>(toolbar->widgetForAction(window.actionCollection()->action(QStringLiteral("go_back"))));
+        auto *forward = qobject_cast<QToolButton *>(toolbar->widgetForAction(window.actionCollection()->action(QStringLiteral("go_forward"))));
         QVERIFY(back);
         QVERIFY(forward);
         QTRY_VERIFY(back->isVisible());
         QTRY_VERIFY(back->geometry().left() >= header->geometry().right());
-        QVERIFY(forward->geometry().left() > back->geometry().left());
+        QVERIFY(forward->geometry().left() > back->geometry().right());
+        QCOMPARE(places->spacing(), 0);
+        QCOMPARE(places->viewport()->geometry().left(), places->contentsRect().left() + 12);
+        QCOMPARE(places->viewport()->geometry().top(), places->contentsRect().top() + 8);
+        for (int row = 0; row < places->model()->rowCount(); ++row) {
+            if (!places->isRowHidden(row)) {
+                QVERIFY(places->visualRect(places->model()->index(row, 0)).height() >= 38);
+            }
+        }
+        // Saved or customized toolbar sizes must not enlarge header icons.
+        toolbar->setIconSize(QSize(32, 32));
+        QToolButton *previousButton = nullptr;
+        for (const auto *name : {"go_back", "go_forward", "toggle_search", "view_settings"}) {
+            auto *button = qobject_cast<QToolButton *>(toolbar->widgetForAction(window.actionCollection()->action(QString::fromLatin1(name))));
+            QVERIFY(button);
+            QTRY_COMPARE(button->iconSize(), QSize(14, 14));
+            QVERIFY(button->width() >= 32);
+            QVERIFY(button->height() >= 32);
+            // Qt can supply a larger parent-toolbar size to the paint option.
+            QImage rendered(32, 32, QImage::Format_ARGB32_Premultiplied);
+            rendered.fill(Qt::transparent);
+            QStyleOptionToolButton option;
+            option.initFrom(button);
+            option.rect = rendered.rect();
+            option.state = QStyle::State_Enabled | QStyle::State_AutoRaise;
+            option.subControls = QStyle::SC_ToolButton;
+            option.icon = button->icon();
+            option.iconSize = QSize(32, 32);
+            QPainter painter(&rendered);
+            button->style()->drawComplexControl(QStyle::CC_ToolButton, &option, &painter, button);
+            painter.end();
+            QRect painted;
+            for (int y = 0; y < rendered.height(); ++y) {
+                for (int x = 0; x < rendered.width(); ++x) {
+                    if (rendered.pixelColor(x, y).alpha()) {
+                        painted = painted.united(QRect(x, y, 1, 1));
+                    }
+                }
+            }
+            QVERIFY(!painted.isEmpty());
+            QVERIFY(painted.width() <= 14);
+            QVERIFY(painted.height() <= 14);
+            if (previousButton) {
+                QTRY_VERIFY(button->geometry().left() > previousButton->geometry().right());
+            }
+            previousButton = button;
+        }
+        toolbar->setIconSize(QSize(16, 16));
         auto *navigator = window.findChild<DolphinUrlNavigator *>();
         const QImage breadcrumb = navigator->grab().toImage();
         QCOMPARE(breadcrumb.pixelColor(breadcrumb.width() / 2, breadcrumb.height() - 3), navigator->palette().color(QPalette::Button));
@@ -287,6 +337,13 @@ void DolphinAppearanceTest::mainWindowActions()
         QTRY_VERIFY(window.findChild<QWidget *>(QStringLiteral("gnomeSidebarHeader")));
         QTRY_VERIFY(window.findChild<QWidget *>(QStringLiteral("gnomeSidebarHeader"))->isVisible());
         QTRY_VERIFY(toolbar->widgetForAction(window.actionCollection()->action(QStringLiteral("go_back")))->isVisible());
+        for (const auto *name : {"go_back", "go_forward", "toggle_search", "view_settings"}) {
+            auto *button = qobject_cast<QToolButton *>(toolbar->widgetForAction(window.actionCollection()->action(QString::fromLatin1(name))));
+            QVERIFY(button);
+            QTRY_COMPARE(button->iconSize(), QSize(14, 14));
+            QVERIFY(button->width() >= 32);
+            QVERIFY(button->height() >= 32);
+        }
     }
     // Native header close must still take Dolphin's confirmation path.
     GeneralSettings::setRememberOpenedTabs(false);
@@ -386,12 +443,25 @@ void DolphinAppearanceTest::visualCapture()
     window.activeViewContainer()->view()->setHiddenFilesShown(true);
     const auto manager = KColorSchemeManager::instance();
     for (const auto &scheme : {QStringLiteral("GnomeLight"), QStringLiteral("GnomeDark")}) {
-        manager->activateScheme(manager->indexForScheme(scheme));
+        manager->activateSchemeId(scheme);
         QTRY_COMPARE(QApplication::palette().color(QPalette::Window).lightness() < 128, scheme.endsWith(QLatin1String("Dark")));
+        QTRY_COMPARE(QIcon::themeName(),
+                     scheme.endsWith(QLatin1String("Dark")) ? QStringLiteral("orca-explorer-gnome-dark") : QStringLiteral("orca-explorer-gnome-light"));
         for (const auto &size : {QSize(1920, 1033), QSize(1024, 768)}) {
             window.resize(size);
             QTRY_COMPARE(window.size(), size);
-            QCoreApplication::processEvents();
+            // Capture after asynchronous theme changes and Places animations settle.
+            QImage previous;
+            QElapsedTimer unchanged;
+            unchanged.start();
+            QVERIFY(QTest::qWaitFor([&window, &previous, &unchanged]() {
+                const QImage current = window.grab().toImage();
+                if (current != previous) {
+                    previous = current;
+                    unchanged.restart();
+                }
+                return unchanged.elapsed() >= 200;
+            }));
             QVERIFY(window.grab().save(output + QStringLiteral("/orca-%1-%2x%3-%4x.png").arg(scheme).arg(size.width()).arg(size.height()).arg(window.devicePixelRatioF())));
         }
     }
