@@ -87,7 +87,15 @@ public:
         if (element == PE_PanelItemViewItem || element == PE_PanelButtonTool || element == PE_FrameFocusRect) {
             painter->save();
             painter->setRenderHint(QPainter::Antialiasing);
-            const QRectF rect = QRectF(option->rect).adjusted(2, 2, -2, -2);
+            QRectF rect = QRectF(option->rect).adjusted(2, 2, -2, -2);
+            if (element == PE_PanelItemViewItem && option->styleObject) {
+                const int padding = option->styleObject->property("gnomePlacesContentPadding").toInt();
+                if (option->direction == Qt::LeftToRight) {
+                    rect.adjust(-padding, 0, 0, 0);
+                } else {
+                    rect.adjust(0, 0, padding, 0);
+                }
+            }
             const bool selected = option->state & (State_Selected | State_On | State_Sunken);
             QColor fill = selected ? option->palette.color(QPalette::Highlight) : option->palette.color(QPalette::Text);
             if (!selected) {

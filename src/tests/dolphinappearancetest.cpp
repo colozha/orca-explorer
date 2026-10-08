@@ -6,18 +6,19 @@
 #include "dolphin_iconsmodesettings.h"
 #include "dolphinmainwindow.h"
 #include "dolphinplacesmodelsingleton.h"
-#include <KBookmarkManager>
-#include <KAbstractFileItemActionPlugin>
-#include <KPluginFactory>
-#include <KPluginMetaData>
-#include <KFileItemListProperties>
-#include <QStandardPaths>
+#include "dolphintabwidget.h"
 #include "dolphinurlnavigator.h"
 #include "dolphinviewcontainer.h"
 #include "panels/places/placespanel.h"
 #include "settings/interface/interfacesettingspage.h"
 #include "testdir.h"
 #include "views/dolphinview.h"
+#include <KAbstractFileItemActionPlugin>
+#include <KBookmarkManager>
+#include <KFileItemListProperties>
+#include <KPluginFactory>
+#include <KPluginMetaData>
+#include <QStandardPaths>
 
 #include <KAboutData>
 #include <KActionCollection>
@@ -29,6 +30,7 @@
 #include <KToolBar>
 #include <KXMLGUIFactory>
 
+#include <QAbstractItemDelegate>
 #include <QApplication>
 #include <QComboBox>
 #include <QDialog>
@@ -41,6 +43,7 @@
 #include <QScopeGuard>
 #include <QSignalSpy>
 #include <QStyleOptionToolButton>
+#include <QStyleOptionViewItem>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
@@ -57,6 +60,8 @@ private Q_SLOTS:
     void privatePlugins();
     void iconsAndPalette();
     void mainWindowActions();
+    void sidebarContentPadding();
+    void sidebarNavigation();
     void menuActionsRetained();
     void savedLayoutRetained();
     void visualCapture();
@@ -221,6 +226,176 @@ void DolphinAppearanceTest::iconsAndPalette()
     QVERIFY(foregroundLightness(control) < 100);
     QVERIFY(qApp->palette().color(QPalette::Base).lightness() > 220);
     manager->activateSchemeId(original);
+}
+
+void DolphinAppearanceTest::sidebarNavigation()
+{
+    TestDir files;
+    files.createDir(QStringLiteral("Sidebar target"));
+    const QUrl firstUrl = files.url();
+    const QUrl secondUrl = QUrl::fromLocalFile(files.path() + QStringLiteral("/Sidebar target/"));
+    DolphinMainWindow window;
+    const auto hideWindow = qScopeGuard([&]() {
+        window.hide();
+    });
+    window.openDirectories({firstUrl}, false);
+    window.resize(1024, 768);
+    window.show();
+    QVERIFY(QTest::qWaitForWindowExposed(&window));
+    auto *places = window.findChild<PlacesPanel *>();
+    auto *tabs = window.findChild<DolphinTabWidget *>();
+    QVERIFY(places);
+    QVERIFY(tabs);
+    auto *model = qobject_cast<KFilePlacesModel *>(places->model());
+    QVERIFY(model);
+    auto indexForUrl = [&](const QUrl &url) {
+        for (int row = 0; row < model->rowCount(); ++row) {
+            const auto index = model->index(row, 0);
+            if (model->url(index) == url) {
+                return index;
+            }
+        }
+        return QModelIndex();
+    };
+    model->addPlace(QStringLiteral("Sidebar first"), firstUrl);
+    model->addPlace(QStringLiteral("Sidebar second"), secondUrl);
+    const auto removePlaces = qScopeGuard([&]() {
+        model->removePlace(indexForUrl(secondUrl));
+        model->removePlace(indexForUrl(firstUrl));
+    });
+    const QPersistentModelIndex first = indexForUrl(firstUrl);
+    const QPersistentModelIndex second = indexForUrl(secondUrl);
+    QVERIFY(first.isValid());
+    QVERIFY(second.isValid());
+    QSignalSpy activated(places, &KFilePlacesView::placeActivated);
+    for (const auto &index : {second, first}) {
+        places->scrollTo(index);
+        QTRY_VERIFY(places->visualRect(index).height() >= (m_gnome ? 38 : 16));
+        const QRect rect = places->visualRect(index);
+        QTest::mouseClick(places->viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(rect.center().x(), rect.bottom() - qMin(18, rect.height() / 2)));
+        QTRY_COMPARE(window.activeViewContainer()->url(), model->url(index));
+    }
+    QCOMPARE(activated.count(), 2);
+    const int initialTabs = tabs->count();
+    QSignalSpy requested(places, &KFilePlacesView::tabRequested);
+    for (auto button : {Qt::MiddleButton, Qt::LeftButton}) {
+        places->scrollTo(second);
+        const QRect rect = places->visualRect(second);
+        QTest::mouseClick(places->viewport(),
+                          button,
+                          button == Qt::LeftButton ? Qt::ControlModifier : Qt::NoModifier,
+                          QPoint(rect.center().x(), rect.bottom() - qMin(18, rect.height() / 2)));
+        QTRY_COMPARE(requested.count(), button == Qt::MiddleButton ? 1 : 2);
+    }
+    QTRY_COMPARE(tabs->count(), initialTabs + 2);
+    QCOMPARE(window.activeViewContainer()->url(), firstUrl);
+    places->setFocus();
+    places->setCurrentIndex(first);
+    QTest::keyClick(places, Qt::Key_Down);
+    QTRY_COMPARE(places->currentIndex(), QModelIndex(second));
+    QTest::keyClick(places, Qt::Key_Return);
+    QTRY_COMPARE(window.activeViewContainer()->url(), secondUrl);
+    const int activations = activated.count();
+    // A section heading must not navigate or crash.
+    const auto heading = model->index(0, 0);
+    places->scrollTo(heading);
+    QTRY_VERIFY(places->visualRect(heading).height() > places->visualRect(second).height());
+    const QRect headerRect = places->visualRect(heading);
+    QTest::mouseClick(places->viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(headerRect.center().x(), headerRect.top() + 2));
+    QCOMPARE(activated.count(), activations);
+    QCOMPARE(window.activeViewContainer()->url(), secondUrl);
+    if (m_gnome) {
+        QVERIFY(!places->itemDelegate()->property("gnomePlacesContentPadding").isValid());
+        QCOMPARE(places->itemDelegateForIndex(first)->property("gnomePlacesContentPadding").toInt(), 8);
+    }
+}
+
+void DolphinAppearanceTest::sidebarContentPadding()
+{
+    if (!m_gnome) {
+        PlacesPanel places(nullptr);
+        QVERIFY(!places.itemDelegate()->property("gnomePlacesContentPadding").isValid());
+        return;
+    }
+    class IconPlacesModel : public DolphinPlacesModel
+    {
+    public:
+        QVariant data(const QModelIndex &index, int role) const override
+        {
+            if (role == Qt::DecorationRole) {
+                QPixmap pixmap(16, 16);
+                pixmap.fill(Qt::green);
+                QIcon icon(pixmap);
+                icon.addPixmap(pixmap, QIcon::Selected);
+                return icon;
+            }
+            if (role == Qt::DisplayRole) {
+                return QStringLiteral("A very long location name that needs to be elided");
+            }
+            return DolphinPlacesModel::data(index, role);
+        }
+    } model;
+    PlacesPanel places(nullptr);
+    places.setModel(&model);
+    places.setIconSize(QSize(16, 16));
+    QModelIndex index;
+    for (int row = 1; row < model.rowCount(); ++row) {
+        const auto candidate = model.index(row, 0);
+        if (!model.isHidden(candidate) && !model.isDevice(candidate)
+            && candidate.data(KFilePlacesModel::GroupRole) == model.index(row - 1, 0).data(KFilePlacesModel::GroupRole)) {
+            index = candidate;
+            break;
+        }
+    }
+    QVERIFY(index.isValid());
+    const auto manager = KColorSchemeManager::instance();
+    const QString original = manager->activeSchemeId();
+    const auto restore = qScopeGuard([&]() {
+        manager->activateSchemeId(original);
+    });
+    for (const auto &scheme : {QStringLiteral("GnomeLight"), QStringLiteral("GnomeDark")}) {
+        manager->activateSchemeId(scheme);
+        QTRY_COMPARE(QIcon::themeName(),
+                     scheme.endsWith(QLatin1String("Dark")) ? QStringLiteral("orca-explorer-gnome-dark") : QStringLiteral("orca-explorer-gnome-light"));
+        for (auto direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+            places.setLayoutDirection(direction);
+            for (auto state : {QStyle::State_Selected, QStyle::State_MouseOver}) {
+                QStyleOptionViewItem option;
+                option.initFrom(&places);
+                option.widget = &places;
+                option.rect = QRect(0, 0, 240, 38);
+                option.state = QStyle::State_Enabled | QStyle::State_Active | state;
+                const QColor background = places.palette().color(QPalette::Window);
+                QImage rendered(240, 38, QImage::Format_ARGB32_Premultiplied);
+                rendered.fill(background);
+                QImage expected = rendered;
+                QPainter expectedPainter(&expected);
+                places.style()->drawPrimitive(QStyle::PE_PanelItemViewItem, &option, &expectedPainter, &places);
+                expectedPainter.end();
+                QPainter painter(&rendered);
+                places.itemDelegateForIndex(index)->paint(&painter, option, index);
+                painter.end();
+                // Padding changes the contents, not the highlight's outside edges.
+                for (int x : {0, 2, 8, 231, 237, 239}) {
+                    QCOMPARE(rendered.pixelColor(x, 19), expected.pixelColor(x, 19));
+                }
+                int firstIcon = -1;
+                int lastIcon = -1;
+                for (int x = 0; x < rendered.width(); ++x) {
+                    if (rendered.pixelColor(x, 19) == QColor(Qt::green)) {
+                        if (firstIcon < 0) {
+                            firstIcon = x;
+                        }
+                        lastIcon = x;
+                    }
+                }
+                QCOMPARE(lastIcon - firstIcon + 1, 16);
+                const int gap = direction == Qt::LeftToRight ? firstIcon - 2 : 237 - lastIcon;
+                QVERIFY(gap >= 10 && gap <= 11);
+                QCOMPARE(places.itemDelegateForIndex(index)->sizeHint(option, index).height(), 38);
+            }
+        }
+    }
 }
 
 void DolphinAppearanceTest::mainWindowActions()

@@ -25,13 +25,61 @@
 #include <KLocalizedString>
 #include <KProtocolManager>
 
+#include <QAbstractItemDelegate>
 #include <QIcon>
 #include <QMenu>
 #include <QMimeData>
 #include <QPainter>
 #include <QShowEvent>
+#include <QStyleOptionViewItem>
 
 #include <Solid/StorageAccess>
+
+namespace
+{
+class PaddedPlacesDelegate final : public QAbstractItemDelegate
+{
+public:
+    PaddedPlacesDelegate(QAbstractItemDelegate *delegate, QObject *parent)
+        : QAbstractItemDelegate(parent)
+        , m_delegate(delegate)
+    {
+        setProperty("gnomePlacesContentPadding", 8);
+        connect(delegate, &QAbstractItemDelegate::sizeHintChanged, this, &QAbstractItemDelegate::sizeHintChanged);
+    }
+
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        return m_delegate->sizeHint(option, index);
+    }
+
+    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        QStyleOptionViewItem inset(option);
+        inset.styleObject = const_cast<PaddedPlacesDelegate *>(this);
+        inset.rect.setWidth(qMax(1, inset.rect.width() - 8));
+        painter->save();
+        painter->setClipRect(option.rect, Qt::IntersectClip);
+        // Keep the trailing device action in its native hit area.
+        painter->translate(option.direction == Qt::LeftToRight ? 8 : 0, 0);
+        m_delegate->paint(painter, inset, index);
+        painter->restore();
+    }
+
+    bool helpEvent(QHelpEvent *event, QAbstractItemView *view, const QStyleOptionViewItem &option, const QModelIndex &index) override
+    {
+        return m_delegate->helpEvent(event, view, option, index);
+    }
+
+    bool editorEvent(QEvent *event, QAbstractItemModel *model, const QStyleOptionViewItem &option, const QModelIndex &index) override
+    {
+        return m_delegate->editorEvent(event, model, option, index);
+    }
+
+private:
+    QAbstractItemDelegate *m_delegate;
+};
+}
 
 PlacesPanel::PlacesPanel(QWidget *parent)
     : KFilePlacesView(parent)
@@ -82,6 +130,10 @@ PlacesPanel::PlacesPanel(QWidget *parent)
     // Set the model here so that it's loaded in time for the sizeHint to properly apply (setting it upon showEvent is too late)
     auto *placesModel = DolphinPlacesModelSingleton::instance().placesModel();
     setModel(placesModel);
+    if (DolphinAppearance::isEnabled()) {
+        // KDE's click handler requires its native delegate to remain the main delegate.
+        setItemDelegateForColumn(0, new PaddedPlacesDelegate(itemDelegate(), this));
+    }
 
     connect(placesModel, &KFilePlacesModel::errorMessage, this, &PlacesPanel::errorMessage);
     connect(placesModel, &KFilePlacesModel::teardownDone, this, &PlacesPanel::slotTearDownDone);
